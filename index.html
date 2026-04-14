@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Learning Skills - Prototype</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f3f2ef;
+      color: #191919;
+      min-height: 100vh;
+    }
+    a { text-decoration: none; color: inherit; }
+    button { cursor: pointer; font-family: inherit; }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* ============ NAVIGATION BAR ============ */
+    .navbar {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .navbar-inner {
+      max-width: 1128px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      height: 52px;
+      gap: 8px;
+    }
+    .nav-logo {
+      width: 34px; height: 34px;
+      background: #0a66c2; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 700; font-size: 20px; flex-shrink: 0;
+      cursor: pointer;
+    }
+    .nav-search {
+      flex: 0 1 280px; position: relative; margin-left: 8px;
+    }
+    .nav-search input {
+      width: 100%; padding: 6px 8px 6px 32px;
+      border: none; background: #eef3f8; border-radius: 4px;
+      font-size: 14px; height: 34px; color: #191919;
+    }
+    .nav-search input:focus { outline: 1px solid #0a66c2; background: #fff; }
+    .nav-search::before {
+      content: '🔍'; position: absolute; left: 8px; top: 50%;
+      transform: translateY(-50%); font-size: 14px; opacity: 0.6;
+    }
+    .nav-items { display: flex; align-items: center; margin-left: auto; gap: 0; }
+    .nav-item {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0 12px; height: 52px; justify-content: center;
+      color: #666; font-size: 11px; border-bottom: 2px solid transparent;
+      cursor: pointer; transition: all 0.15s; position: relative;
+    }
+    .nav-item:hover { color: #191919; }
+    .nav-item.active-nav { color: #191919; border-bottom-color: #191919; }
+    .nav-item .nav-icon { font-size: 20px; margin-bottom: 2px; }
+    .nav-item.skills-nav { color: #0a66c2; position: relative; }
+    .nav-item.skills-nav .nav-icon { font-size: 20px; }
+
+    /* Pulse animation for Skills nav */
+    .nav-item.skills-nav::after {
+      content: 'NEW';
+      position: absolute; top: 2px; right: 0;
+      background: #e74c3c; color: white; font-size: 8px;
+      padding: 1px 5px; border-radius: 8px; font-weight: 700;
+      animation: pulse-badge 2s infinite;
+    }
+    @keyframes pulse-badge {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(231,76,60,0.4); }
+      50% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(231,76,60,0); }
+    }
+    /* Tooltip for Skills nav */
+    .skills-tooltip {
+      position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
+      background: #191919; color: white; padding: 10px 16px; border-radius: 8px;
+      font-size: 13px; white-space: nowrap; z-index: 200;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      animation: fadeInDown 0.3s ease;
+      pointer-events: none;
+    }
+    .skills-tooltip::before {
+      content: ''; position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+      border-left: 6px solid transparent; border-right: 6px solid transparent;
+      border-bottom: 6px solid #191919;
+    }
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    .nav-item.skills-nav:hover { background: #e8f0fe; border-radius: 4px 4px 0 0; }
+    .nav-item.skills-nav.active-nav { border-bottom-color: #0a66c2; background: #e8f0fe; border-radius: 4px 4px 0 0; }
+    .nav-divider { width: 1px; height: 40px; background: #e0e0e0; margin: 0 4px; }
+
+    /* ============ BREADCRUMB ============ */
+    .breadcrumb {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: #666; margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .breadcrumb a {
+      color: #0a66c2; cursor: pointer; text-decoration: none;
+    }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .breadcrumb .sep { color: #999; }
+
+    /* ============ MAIN CONTAINER ============ */
+    .main-container { max-width: 1128px; margin: 0 auto; padding: 24px 16px; }
+
+    /* ============ ONBOARDING MODAL ============ */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-card {
+      background: white; border-radius: 16px; padding: 40px;
+      max-width: 520px; width: 90%; text-align: center;
+      animation: scaleIn 0.3s ease;
+      position: relative;
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .modal-close {
+      position: absolute; top: 12px; right: 16px;
+      background: none; border: none; font-size: 22px; color: #666;
+    }
+    .modal-icon { font-size: 48px; margin-bottom: 16px; }
+    .modal-card h2 { font-size: 22px; margin-bottom: 8px; }
+    .modal-card p { font-size: 15px; color: #666; line-height: 1.5; }
+    .modal-features {
+      display: flex; gap: 12px; margin: 24px 0; text-align: left;
+    }
+    .modal-feat {
+      flex: 1; background: #f8f9fa; padding: 14px; border-radius: 10px;
+    }
+    .modal-feat .mf-icon { font-size: 22px; margin-bottom: 6px; }
+    .modal-feat h4 { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .modal-feat p { font-size: 11px; color: #666; }
+
+    /* ============ SCREEN 1: HOME FEED ============ */
+    .home-layout {
+      display: grid; grid-template-columns: 225px 1fr 300px; gap: 24px;
+    }
+    .sidebar-card {
+      background: white; border-radius: 8px; border: 1px solid #e0e0e0; overflow: hidden;
+    }
+    .profile-card-banner { height: 56px; background: linear-gradient(135deg, #0a66c2, #004182); }
+    .profile-card-body { padding: 12px 16px; text-align: center; }
+    .profile-avatar {
+      width: 64px; height: 64px; border-radius: 50%; background: #e8f0fe;
+      border: 3px solid white; margin: -40px auto 8px;
+      display: flex; align-items: center; justify-content: center; font-size: 28px;
+    }
+    .profile-name { font-weight: 600; font-size: 16px; }
+    .profile-headline { font-size: 12px; color: #666; margin-top: 4px; }
+    .profile-stats { border-top: 1px solid #e0e0e0; padding: 12px 16px; }
+    .profile-stat {
+      display: flex; justify-content: space-between; font-size: 12px; color: #666; padding: 4px 0;
+    }
+    .profile-stat span:last-child { color: #0a66c2; font-weight: 600; }
+
+    /* Skills Widget on Home */
+    .skills-widget {
+      background: linear-gradient(135deg, #0a66c2 0%, #004182 100%);
+      border-radius: 8px; padding: 16px; margin-top: 16px; color: white;
+      cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+      position: relative; overflow: hidden;
+    }
+    .skills-widget:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(10,102,194,0.4); }
+    .skills-widget::before {
+      content: ''; position: absolute; top: -20px; right: -20px;
+      width: 80px; height: 80px; background: rgba(255,255,255,0.1); border-radius: 50%;
+    }
+    .skills-widget-tag {
+      display: inline-block; background: rgba(255,255,255,0.2); padding: 2px 8px;
+      border-radius: 10px; font-size: 10px; font-weight: 600; margin-bottom: 8px; letter-spacing: 0.5px;
+    }
+    .skills-widget h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .skills-widget p { font-size: 12px; opacity: 0.9; line-height: 1.4; }
+    .skills-widget-arrow { position: absolute; right: 16px; bottom: 16px; font-size: 18px; opacity: 0.8; }
+    .skills-widget-match { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+    .match-bar-bg {
+      flex: 1; height: 6px; background: rgba(255,255,255,0.2);
+      border-radius: 3px; overflow: hidden;
+    }
+    .match-bar-fill {
+      height: 100%; background: #70d4a2; border-radius: 3px; width: 0; transition: width 1.5s ease;
+    }
+    .match-pct { font-size: 14px; font-weight: 700; }
+
+    /* Feed */
+    .feed-area { display: flex; flex-direction: column; gap: 8px; }
+    .create-post {
+      background: white; border-radius: 8px; border: 1px solid #e0e0e0;
+      padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+    }
+    .create-post-avatar {
+      width: 48px; height: 48px; border-radius: 50%; background: #e8f0fe;
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .create-post-input {
+      flex: 1; padding: 10px 16px; border: 1px solid #c0c0c0;
+      border-radius: 24px; font-size: 14px; color: #666; cursor: pointer;
+    }
+    .create-post-input:hover { background: #f3f2ef; }
+    .feed-post {
+      background: white; border-radius: 8px; border: 1px solid #e0e0e0; padding: 16px;
+    }
+    .post-header { display: flex; gap: 8px; margin-bottom: 12px; }
+    .post-avatar {
+      width: 48px; height: 48px; border-radius: 50%; background: #ddd;
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
+    }
+    .post-meta h4 { font-size: 14px; font-weight: 600; }
+    .post-meta p { font-size: 12px; color: #666; }
+    .post-body { font-size: 14px; line-height: 1.5; color: #333; }
+
+    /* Subtler promo card */
+    .skills-promo-card {
+      background: white; border-radius: 8px;
+      border: 1px solid #e0e0e0; border-left: 3px solid #0a66c2;
+      padding: 16px; cursor: pointer; transition: all 0.2s;
+    }
+    .skills-promo-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .promo-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #e8f0fe; color: #0a66c2; padding: 3px 8px;
+      border-radius: 10px; font-size: 11px; font-weight: 600; margin-bottom: 8px;
+    }
+    .skills-promo-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .skills-promo-card > p { font-size: 13px; color: #666; line-height: 1.4; margin-bottom: 10px; }
+    .promo-jobs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .promo-job { background: #f3f2ef; padding: 4px 10px; border-radius: 14px; font-size: 11px; color: #333; }
+    .promo-cta {
+      background: #0a66c2; color: white; border: none; padding: 8px 20px;
+      border-radius: 20px; font-size: 13px; font-weight: 600; transition: background 0.15s;
+    }
+    .promo-cta:hover { background: #004182; }
+
+    /* Right Sidebar */
+    .right-sidebar { display: flex; flex-direction: column; gap: 8px; }
+    .news-card {
+      background: white; border-radius: 8px; border: 1px solid #e0e0e0; padding: 12px 16px;
+    }
+    .news-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .news-item { padding: 6px 0; font-size: 13px; color: #333; line-height: 1.4; }
+    .news-item::before { content: '•'; color: #0a66c2; margin-right: 6px; font-weight: 700; }
+
+    /* ============ SCREEN 2: SKILLS DASHBOARD ============ */
+    .dashboard-hero {
+      background: linear-gradient(135deg, #0a66c2 0%, #004182 50%, #1b1e3d 100%);
+      border-radius: 12px; padding: 32px; color: white; margin-bottom: 24px;
+      position: relative; overflow: hidden;
+    }
+    .dashboard-hero::after {
+      content: ''; position: absolute; top: -40px; right: -40px;
+      width: 200px; height: 200px; background: rgba(255,255,255,0.05); border-radius: 50%;
+    }
+    .dashboard-hero h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+    .dashboard-hero > p { font-size: 16px; opacity: 0.9; max-width: 600px; }
+    .dashboard-hero-stats { display: flex; gap: 32px; margin-top: 20px; }
+    .hero-stat { text-align: center; }
+    .hero-stat-value { font-size: 32px; font-weight: 700; }
+    .hero-stat-label { font-size: 13px; opacity: 0.8; }
+
+    /* Target role selector */
+    .target-role-bar {
+      background: white; border-radius: 8px; border: 1px solid #e0e0e0;
+      padding: 12px 20px; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .target-role-bar label { font-size: 14px; font-weight: 600; white-space: nowrap; }
+    .target-role-bar select {
+      padding: 6px 12px; border: 1px solid #c0c0c0; border-radius: 6px;
+      font-size: 14px; color: #191919; background: white; flex: 1; max-width: 280px;
+    }
+    .target-role-bar .role-match {
+      font-size: 14px; font-weight: 600; color: #057642;
+      margin-left: auto;
+    }
+
+    .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .dash-card {
+      background: white; border-radius: 8px; border: 1px solid #e0e0e0; padding: 20px;
+    }
+    .dash-card h3 {
+      font-size: 16px; font-weight: 600; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .skill-bar-group { margin-bottom: 12px; }
+    .skill-bar-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+    .skill-bar-label span:last-child { color: #0a66c2; font-weight: 600; }
+    .skill-bar-track { height: 8px; background: #e8f0fe; border-radius: 4px; overflow: hidden; }
+    .skill-bar-progress {
+      height: 100%; border-radius: 4px; transition: width 1.2s ease; width: 0;
+    }
+    .skill-bar-progress.high { background: #057642; }
+    .skill-bar-progress.medium { background: #e89f17; }
+    .skill-bar-progress.low { background: #cc1016; }
+
+    .job-match-item {
+      display: flex; align-items: center; gap: 12px; padding: 10px;
+      border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.15s;
+    }
+    .job-match-item:hover { background: #f3f2ef; }
+    .job-match-logo {
+      width: 40px; height: 40px; border-radius: 8px; background: #e8f0fe;
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .job-match-info { flex: 1; }
+    .job-match-info h4 { font-size: 14px; font-weight: 600; }
+    .job-match-info p { font-size: 12px; color: #666; }
+    .job-match-score { font-size: 16px; font-weight: 700; color: #057642; }
+
+    .cta-btn {
+      background: #0a66c2; color: white; border: none; padding: 10px 24px;
+      border-radius: 24px; font-size: 14px; font-weight: 600; width: 100%;
+      margin-top: 12px; transition: background 0.15s;
+    }
+    .cta-btn:hover { background: #004182; }
+    .cta-btn-outline {
+      background: transparent; color: #0a66c2; border: 1px solid #0a66c2;
+      padding: 10px 24px; border-radius: 24px; font-size: 14px; font-weight: 600;
+      width: 100%; margin-top: 8px; transition: all 0.15s;
+    }
+    .cta-btn-outline:hover { background: #e8f0fe; }
+
+    /* ============ SCREEN 3: ASSESSMENT INTRO ============ */
+    .assessment-intro { max-width: 640px; margin: 0 auto; text-align: center; }
+    .assessment-intro-card {
+      background: white; border-radius: 12px; border: 1px solid #e0e0e0; padding: 40px;
+    }
+    .assessment-icon {
+      width: 80px; height: 80px; background: #e8f0fe; border-radius: 50%;
+      margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 36px;
+    }
+    .assessment-intro-card h2 { font-size: 24px; margin-bottom: 12px; }
+    .assessment-intro-card > p { font-size: 15px; color: #666; line-height: 1.5; margin-bottom: 8px; }
+    .assessment-features { display: flex; gap: 16px; margin: 24px 0; text-align: left; }
+    .assessment-feature { flex: 1; background: #f8f9fa; border-radius: 8px; padding: 16px; }
+    .assessment-feature .feat-icon { font-size: 24px; margin-bottom: 8px; }
+    .assessment-feature h4 { font-size: 14px; margin-bottom: 4px; }
+    .assessment-feature p { font-size: 12px; color: #666; }
+    .role-selector { display: flex; gap: 12px; margin: 20px 0; }
+    .role-option {
+      flex: 1; padding: 16px; border: 2px solid #e0e0e0; border-radius: 12px;
+      cursor: pointer; transition: all 0.2s; text-align: center;
+    }
+    .role-option:hover { border-color: #0a66c2; background: #f8fbff; }
+    .role-option.selected { border-color: #0a66c2; background: #e8f0fe; }
+    .role-option .role-icon { font-size: 28px; margin-bottom: 8px; }
+    .role-option h4 { font-size: 14px; font-weight: 600; }
+    .role-option p { font-size: 11px; color: #666; }
+
+    /* ============ SCREEN 4: QUIZ ============ */
+    .quiz-container { max-width: 700px; margin: 0 auto; }
+    .quiz-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .quiz-progress-bar { flex: 1; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; }
+    .quiz-progress-fill { height: 100%; background: #0a66c2; border-radius: 3px; transition: width 0.5s ease; }
+    .quiz-progress-text { font-size: 13px; color: #666; white-space: nowrap; }
+    .quiz-card {
+      background: white; border-radius: 12px; border: 1px solid #e0e0e0; padding: 32px;
+    }
+    .quiz-category {
+      display: inline-block; background: #e8f0fe; color: #0a66c2; padding: 4px 12px;
+      border-radius: 12px; font-size: 12px; font-weight: 600; margin-bottom: 16px;
+    }
+    .quiz-card h2 { font-size: 20px; margin-bottom: 20px; line-height: 1.4; }
+    .quiz-options { display: flex; flex-direction: column; gap: 10px; }
+    .quiz-option {
+      display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+      border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer;
+      transition: all 0.2s; font-size: 14px;
+    }
+    .quiz-option:hover { border-color: #0a66c2; background: #f8fbff; }
+    .quiz-option.selected { border-color: #0a66c2; background: #e8f0fe; }
+    .quiz-option-radio {
+      width: 20px; height: 20px; border: 2px solid #c0c0c0; border-radius: 50%;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    }
+    .quiz-option.selected .quiz-option-radio { border-color: #0a66c2; }
+    .quiz-option.selected .quiz-option-radio::after {
+      content: ''; width: 10px; height: 10px; background: #0a66c2; border-radius: 50%;
+    }
+    /* Realtime feedback toast inside quiz */
+    .quiz-feedback {
+      margin-top: 14px; padding: 10px 16px; border-radius: 8px;
+      font-size: 13px; display: none; align-items: center; gap: 8px;
+      animation: fadeInUp 0.3s ease;
+    }
+    .quiz-feedback.show { display: flex; }
+    .quiz-feedback.great { background: #e6f4ea; color: #057642; }
+    .quiz-feedback.good { background: #fef7e0; color: #b45309; }
+    .quiz-feedback.grow { background: #e8f0fe; color: #0a66c2; }
+    .quiz-nav { display: flex; justify-content: space-between; margin-top: 20px; }
+    .quiz-nav button { padding: 10px 32px; border-radius: 24px; font-size: 14px; font-weight: 600; }
+    .quiz-back { background: transparent; border: 1px solid #666; color: #666; }
+    .quiz-next { background: #0a66c2; color: white; border: none; }
+    .quiz-next:hover { background: #004182; }
+    .quiz-next:disabled { background: #c0c0c0; cursor: not-allowed; }
+
+    /* ============ SCREEN 5: RESULTS ============ */
+    .results-container { max-width: 800px; margin: 0 auto; }
+    .results-header { text-align: center; margin-bottom: 24px; }
+    .results-header h1 { font-size: 28px; margin-bottom: 8px; }
+    .results-header p { font-size: 16px; color: #666; }
+    .results-overall {
+      background: white; border-radius: 12px; border: 1px solid #e0e0e0;
+      padding: 32px; text-align: center; margin-bottom: 16px;
+    }
+    .score-circle-container { display: flex; justify-content: center; gap: 40px; margin: 20px 0; }
+    .score-circle { position: relative; width: 120px; height: 120px; }
+    .score-circle svg { transform: rotate(-90deg); }
+    .score-circle-bg { fill: none; stroke: #e8f0fe; stroke-width: 8; }
+    .score-circle-fill {
+      fill: none; stroke-width: 8; stroke-linecap: round;
+      transition: stroke-dashoffset 1.5s ease;
+    }
+    .score-circle-text {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); text-align: center;
+    }
+    .score-circle-text .score-val { font-size: 28px; font-weight: 700; }
+    .score-circle-text .score-lbl { font-size: 11px; color: #666; }
+    .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .result-skill-card {
+      background: white; border-radius: 8px; border: 1px solid #e0e0e0;
+      padding: 16px; display: flex; align-items: center; gap: 12px;
+    }
+    .result-skill-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
+    }
+    .result-skill-info { flex: 1; }
+    .result-skill-info h4 { font-size: 14px; font-weight: 600; }
+    .result-skill-info p { font-size: 12px; color: #666; }
+    .result-skill-level { font-size: 14px; font-weight: 700; padding: 4px 10px; border-radius: 12px; }
+    .level-advanced { background: #e6f4ea; color: #057642; }
+    .level-intermediate { background: #fef7e0; color: #b45309; }
+    .level-beginner { background: #fce8e6; color: #cc1016; }
+
+    /* ============ SCREEN 6: JOB-SKILL GAP ============ */
+    .gap-container { max-width: 900px; margin: 0 auto; }
+    .gap-header { margin-bottom: 24px; }
+    .gap-header h1 { font-size: 24px; margin-bottom: 8px; }
+    .gap-header p { font-size: 15px; color: #666; }
+    .gap-job-card {
+      background: white; border-radius: 12px; border: 1px solid #e0e0e0;
+      padding: 24px; margin-bottom: 16px; cursor: pointer; transition: all 0.2s;
+    }
+    .gap-job-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .gap-job-top { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+    .gap-job-logo {
+      width: 56px; height: 56px; border-radius: 12px; background: #e8f0fe;
+      display: flex; align-items: center; justify-content: center; font-size: 24px;
+    }
+    .gap-job-title h3 { font-size: 18px; font-weight: 600; }
+    .gap-job-title p { font-size: 13px; color: #666; }
+    .gap-job-match-badge { margin-left: auto; text-align: center; }
+    .gap-match-pct { font-size: 28px; font-weight: 700; }
+    .gap-match-pct.high-match { color: #057642; }
+    .gap-match-pct.med-match { color: #e89f17; }
+    .gap-match-label { font-size: 11px; color: #666; }
+    .gap-skills-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+    .gap-skill-tag {
+      padding: 6px 14px; border-radius: 16px; font-size: 13px;
+      font-weight: 500; display: flex; align-items: center; gap: 4px;
+    }
+    .gap-skill-tag.has { background: #e6f4ea; color: #057642; }
+    .gap-skill-tag.needs { background: #fce8e6; color: #cc1016; border: 1px dashed #cc1016; }
+
+    /* ============ SCREEN 7: COURSE RECOMMENDATIONS ============ */
+    .courses-container { max-width: 900px; margin: 0 auto; }
+    .courses-header { margin-bottom: 24px; }
+    .courses-header h1 { font-size: 24px; margin-bottom: 8px; }
+    .courses-header p { font-size: 15px; color: #666; }
+    .courses-filter { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-chip {
+      padding: 6px 16px; border-radius: 16px; font-size: 13px;
+      border: 1px solid #c0c0c0; background: white; cursor: pointer; transition: all 0.15s;
+    }
+    .filter-chip.active { background: #057642; color: white; border-color: #057642; }
+    .filter-chip:hover:not(.active) { background: #f3f2ef; }
+    .course-card {
+      background: white; border-radius: 12px; border: 1px solid #e0e0e0;
+      display: flex; margin-bottom: 12px; overflow: hidden;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .course-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+    .course-thumb {
+      width: 200px; min-height: 130px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; font-size: 40px; flex-shrink: 0;
+    }
+    .course-info { flex: 1; padding: 16px; }
+    .course-info h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .course-info .course-author { font-size: 12px; color: #666; margin-bottom: 8px; }
+    .course-meta { display: flex; gap: 16px; font-size: 12px; color: #666; margin-bottom: 6px; }
+    .course-relevance {
+      display: inline-block; background: #e6f4ea; color: #057642;
+      padding: 3px 10px; border-radius: 10px; font-size: 12px; font-weight: 600;
+      margin-bottom: 4px;
+    }
+    /* Social proof */
+    .course-social {
+      font-size: 12px; color: #666; display: flex; align-items: center; gap: 4px;
+    }
+    .course-social .avatars {
+      display: flex; margin-right: 4px;
+    }
+    .course-social .mini-avatar {
+      width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid white;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 9px; margin-left: -5px; background: #e8f0fe;
+    }
+    .course-social .mini-avatar:first-child { margin-left: 0; }
+    .course-action { display: flex; align-items: center; gap: 8px; padding: 16px; }
+    .course-start-btn {
+      background: #0a66c2; color: white; border: none; padding: 8px 20px;
+      border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap;
+    }
+    .course-start-btn:hover { background: #004182; }
+
+    /* ============ SCREEN 8: COURSE DETAIL ============ */
+    .course-detail-container { max-width: 800px; margin: 0 auto; }
+    .course-detail-hero {
+      background: linear-gradient(135deg, #1b1e3d 0%, #2d1b69 100%);
+      border-radius: 12px; padding: 32px; color: white; margin-bottom: 24px;
+      position: relative; overflow: hidden;
+    }
+    .course-detail-hero .back-btn {
+      background: rgba(255,255,255,0.15); border: none; color: white;
+      padding: 6px 14px; border-radius: 16px; font-size: 13px; cursor: pointer; margin-bottom: 16px;
+    }
+    /* Video preview */
+    .video-preview {
+      width: 100%; height: 200px; background: rgba(0,0,0,0.3);
+      border-radius: 10px; margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background 0.2s;
+      position: relative;
+    }
+    .video-preview:hover { background: rgba(0,0,0,0.5); }
+    .play-btn {
+      width: 56px; height: 56px; background: rgba(255,255,255,0.9);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 24px; color: #191919; transition: transform 0.2s;
+    }
+    .video-preview:hover .play-btn { transform: scale(1.1); }
+    .video-duration {
+      position: absolute; bottom: 8px; right: 12px;
+      background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 4px;
+      font-size: 12px; color: white;
+    }
+    .course-detail-hero h1 { font-size: 24px; margin-bottom: 8px; }
+    .course-detail-hero .course-author { font-size: 14px; opacity: 0.8; }
+    .course-detail-meta { display: flex; gap: 24px; margin-top: 16px; font-size: 13px; opacity: 0.9; flex-wrap: wrap; }
+    .course-detail-grid { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+    .course-modules { background: white; border-radius: 8px; border: 1px solid #e0e0e0; }
+    .module-header { padding: 16px 20px; border-bottom: 1px solid #e0e0e0; font-weight: 600; }
+    .module-item {
+      display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+      border-bottom: 1px solid #f0f0f0; cursor: pointer;
+    }
+    .module-item:hover { background: #f8f9fa; }
+    .module-check {
+      width: 24px; height: 24px; border: 2px solid #c0c0c0; border-radius: 50%;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px;
+    }
+    .module-check.done { background: #057642; border-color: #057642; color: white; }
+    .module-info { flex: 1; }
+    .module-info h4 { font-size: 14px; font-weight: 500; }
+    .module-info p { font-size: 12px; color: #666; }
+    .module-duration { font-size: 12px; color: #666; }
+    .course-sidebar-card {
+      background: white; border-radius: 8px; border: 1px solid #e0e0e0;
+      padding: 20px; margin-bottom: 12px;
+    }
+    .course-sidebar-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+    .progress-ring-container { text-align: center; margin-bottom: 12px; }
+    .skill-tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .skill-tag-sm { background: #e8f0fe; color: #0a66c2; padding: 4px 10px; border-radius: 12px; font-size: 12px; }
+    .enroll-btn {
+      background: #057642; color: white; border: none; padding: 12px 24px;
+      border-radius: 24px; font-size: 15px; font-weight: 600; width: 100%; transition: background 0.15s;
+    }
+    .enroll-btn:hover { background: #045e35; }
+
+    /* ============ BOOKMARK ICON ============ */
+    .bookmark-btn {
+      background: none; border: none; font-size: 18px; cursor: pointer;
+      padding: 4px; transition: transform 0.2s; flex-shrink: 0; color: #666;
+    }
+    .bookmark-btn:hover { transform: scale(1.2); }
+    .bookmark-btn.saved { color: #0a66c2; }
+
+    /* ============ SCREEN TRANSITIONS ============ */
+    .screen { opacity: 0; transition: opacity 0.25s ease; }
+    .screen.active { opacity: 1; }
+
+    /* ============ NOTIFICATION DOT ============ */
+    .nav-item.skills-nav .notif-dot {
+      display: none; position: absolute; top: 6px; left: calc(50% + 8px);
+      width: 8px; height: 8px; background: #0a66c2; border-radius: 50%;
+      border: 1.5px solid white;
+    }
+    .nav-item.skills-nav .notif-dot.visible { display: block; }
+
+    /* ============ QUIZ SKIP ============ */
+    .quiz-skip {
+      background: none; border: none; color: #666; font-size: 13px;
+      cursor: pointer; padding: 4px 0; margin-top: 4px;
+    }
+    .quiz-skip:hover { color: #0a66c2; text-decoration: underline; }
+
+    /* ============ SHARE/PROFILE CTA ============ */
+    .results-actions {
+      display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .results-actions button {
+      padding: 10px 24px; border-radius: 24px; font-size: 14px; font-weight: 600;
+    }
+    .share-btn {
+      background: white; color: #0a66c2; border: 1px solid #0a66c2;
+    }
+    .share-btn:hover { background: #e8f0fe; }
+    .profile-badge-btn {
+      background: #057642; color: white; border: none;
+    }
+    .profile-badge-btn:hover { background: #045e35; }
+
+    /* ============ REVIEWS ============ */
+    .reviews-section {
+      background: white; border-radius: 8px; border: 1px solid #e0e0e0;
+      padding: 20px; margin-top: 16px;
+    }
+    .reviews-section h3 { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
+    .review-item {
+      padding: 12px 0; border-bottom: 1px solid #f0f0f0;
+    }
+    .review-item:last-child { border-bottom: none; }
+    .review-top {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+    }
+    .review-avatar {
+      width: 32px; height: 32px; border-radius: 50%; background: #e8f0fe;
+      display: flex; align-items: center; justify-content: center; font-size: 14px;
+    }
+    .review-name { font-size: 13px; font-weight: 600; }
+    .review-role { font-size: 11px; color: #666; }
+    .review-stars { font-size: 12px; color: #e89f17; margin-left: auto; }
+    .review-text { font-size: 13px; color: #333; line-height: 1.5; }
+
+    /* ============ TOAST ============ */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #191919; color: white; padding: 12px 24px;
+      border-radius: 8px; font-size: 14px; z-index: 9999;
+      transition: transform 0.3s ease; display: flex; align-items: center; gap: 8px;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ============ ANIMATIONS ============ */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in { animation: fadeInUp 0.4s ease forwards; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 1024px) {
+      .home-layout { grid-template-columns: 1fr; }
+      .home-layout > :first-child { display: none; }
+      .home-layout > :last-child { display: none; }
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .dashboard-hero-stats { flex-wrap: wrap; gap: 16px; }
+      .results-grid { grid-template-columns: 1fr; }
+      .score-circle-container { flex-wrap: wrap; gap: 20px; }
+      .course-card { flex-direction: column; }
+      .course-thumb { width: 100%; min-height: 80px; }
+      .course-detail-grid { grid-template-columns: 1fr; }
+      .assessment-features { flex-direction: column; }
+      .role-selector { flex-direction: column; }
+      .navbar-inner { gap: 4px; }
+      .nav-search { flex: 0 1 160px; }
+      .nav-item { padding: 0 8px; font-size: 10px; }
+      .nav-item .nav-icon { font-size: 18px; }
+    }
+    @media (max-width: 600px) {
+      .nav-search { display: none; }
+      .nav-item span:not(.nav-icon) { display: none; }
+      .nav-item { padding: 0 10px; }
+      .nav-divider { display: none; }
+      .main-container { padding: 16px 12px; }
+      .dashboard-hero { padding: 20px; }
+      .dashboard-hero h1 { font-size: 22px; }
+      .hero-stat-value { font-size: 24px; }
+      .quiz-card { padding: 20px; }
+      .modal-features { flex-direction: column; }
+      .gap-job-top { flex-direction: column; align-items: flex-start; }
+      .gap-job-match-badge { margin-left: 0; }
+      .video-preview { height: 140px; }
+      .breadcrumb { font-size: 12px; }
+      .target-role-bar { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== ONBOARDING MODAL ===== -->
+<div class="modal-overlay" id="onboardingModal">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <div class="modal-icon">🎯</div>
+    <h2>Welcome to LinkedIn Skills</h2>
+    <p>Your personalized skill-career intelligence hub. We match your skills to real jobs and recommend courses to close the gaps.</p>
+    <div class="modal-features">
+      <div class="modal-feat">
+        <div class="mf-icon">📊</div>
+        <h4>Assess</h4>
+        <p>Quick 3-min skill assessment</p>
+      </div>
+      <div class="modal-feat">
+        <div class="mf-icon">🎯</div>
+        <h4>Match</h4>
+        <p>See job match percentages</p>
+      </div>
+      <div class="modal-feat">
+        <div class="mf-icon">🎓</div>
+        <h4>Learn</h4>
+        <p>Courses to close your gaps</p>
+      </div>
+    </div>
+    <button class="cta-btn" onclick="closeModal()" style="margin-top:0;">Let's Go! →</button>
+  </div>
+</div>
+
+<!-- ===== NAVIGATION BAR ===== -->
+<nav class="navbar" id="navbar">
+  <div class="navbar-inner">
+    <div class="nav-logo" onclick="showScreen('home')">in</div>
+    <div class="nav-search"><input type="text" placeholder="Search"></div>
+    <div class="nav-items">
+      <div class="nav-item active-nav" onclick="showScreen('home')">
+        <span class="nav-icon">🏠</span><span>Home</span>
+      </div>
+      <div class="nav-item"><span class="nav-icon">👥</span><span>Network</span></div>
+      <div class="nav-item"><span class="nav-icon">💼</span><span>Jobs</span></div>
+      <div class="nav-item"><span class="nav-icon">💬</span><span>Messaging</span></div>
+      <div class="nav-item"><span class="nav-icon">🔔</span><span>Notifications</span></div>
+      <div class="nav-item skills-nav" id="skillsNavBtn" onclick="handleSkillsClick()">
+        <span class="nav-icon">📝</span><span>Skills</span>
+        <div class="notif-dot" id="skillsNotifDot"></div>
+        <div class="skills-tooltip" id="skillsTooltip">✨ New! See how your skills match real jobs</div>
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-item"><span class="nav-icon">👤</span><span>Me ▾</span></div>
+    </div>
+  </div>
+</nav>
+
+<!-- ===== SCREEN 1: HOME FEED ===== -->
+<div class="screen active" id="screen-home">
+  <div class="main-container">
+    <div class="home-layout">
+      <div>
+        <div class="sidebar-card">
+          <div class="profile-card-banner"></div>
+          <div class="profile-card-body">
+            <div class="profile-avatar">👤</div>
+            <div class="profile-name">Parikshit Ambhore</div>
+            <div class="profile-headline">Product Manager | MBA Candidate</div>
+          </div>
+          <div class="profile-stats">
+            <div class="profile-stat"><span>Profile viewers</span><span>142</span></div>
+            <div class="profile-stat"><span>Post impressions</span><span>1,024</span></div>
+          </div>
+        </div>
+        <div class="skills-widget" onclick="handleSkillsClick()">
+          <div class="skills-widget-tag">✨ NEW FEATURE</div>
+          <h3>Your Skills Match</h3>
+          <p>See how your skills align with trending jobs</p>
+          <div class="skills-widget-match">
+            <div class="match-bar-bg"><div class="match-bar-fill" id="homeMatchBar"></div></div>
+            <span class="match-pct">72%</span>
+          </div>
+          <span class="skills-widget-arrow">→</span>
+        </div>
+      </div>
+
+      <div class="feed-area">
+        <div class="create-post">
+          <div class="create-post-avatar">👤</div>
+          <div class="create-post-input">Start a post, try writing with AI</div>
+        </div>
+        <div class="skills-promo-card animate-in" onclick="handleSkillsClick()">
+          <div class="promo-badge">📝 Personalized for you</div>
+          <h3>Discover your skill gaps — and close them</h3>
+          <p>Based on your profile and job interests, we matched courses to boost your career readiness.</p>
+          <div class="promo-jobs">
+            <span class="promo-job">Product Manager — 87%</span>
+            <span class="promo-job">Data Analyst — 72%</span>
+            <span class="promo-job">UX Researcher — 65%</span>
+          </div>
+          <button class="promo-cta" onclick="event.stopPropagation(); handleSkillsClick()">Explore Your Skills →</button>
+        </div>
+        <div class="feed-post">
+          <div class="post-header">
+            <div class="post-avatar">🧑‍💻</div>
+            <div class="post-meta"><h4>Sarah Chen</h4><p>Sr. Product Manager at Meta • 2h</p></div>
+          </div>
+          <div class="post-body">Just completed a LinkedIn Learning course on advanced product analytics — the skill assessment was eye-opening! Turns out I had gaps in SQL that I didn't even know about. Highly recommend the new Skills feature.</div>
+        </div>
+        <div class="feed-post">
+          <div class="post-header">
+            <div class="post-avatar">👨‍🎓</div>
+            <div class="post-meta"><h4>Marcus Rivera</h4><p>MBA Candidate '26 at Kellogg • 5h</p></div>
+          </div>
+          <div class="post-body">The personalized course recommendations on LinkedIn are great. It showed me exactly which skills I needed for the PM roles I'm targeting. Already halfway through the Design Thinking pathway!</div>
+        </div>
+      </div>
+
+      <div class="right-sidebar">
+        <div class="news-card">
+          <h3>LinkedIn News</h3>
+          <div class="news-item">Tech layoffs slow as AI roles surge</div>
+          <div class="news-item">MBA hiring rebounds for 2026</div>
+          <div class="news-item">Remote work policies evolve again</div>
+          <div class="news-item">Skills-first hiring gains momentum</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 2: SKILLS DASHBOARD ===== -->
+<div class="screen" id="screen-dashboard">
+  <div class="main-container">
+    <div class="breadcrumb">
+      <a onclick="showScreen('home')">Home</a><span class="sep">›</span><span>Skills Dashboard</span>
+    </div>
+    <div class="dashboard-hero animate-in">
+      <h1>Your Skills Dashboard</h1>
+      <p>Personalized skill insights matched to real jobs on LinkedIn. Identify gaps, take assessments, and get course recommendations.</p>
+      <div class="dashboard-hero-stats">
+        <div class="hero-stat"><div class="hero-stat-value">12</div><div class="hero-stat-label">Skills Assessed</div></div>
+        <div class="hero-stat"><div class="hero-stat-value" id="heroMatchPct">72%</div><div class="hero-stat-label">Avg Job Match</div></div>
+        <div class="hero-stat"><div class="hero-stat-value" id="heroGaps">3</div><div class="hero-stat-label">Skill Gaps Found</div></div>
+        <div class="hero-stat"><div class="hero-stat-value">8</div><div class="hero-stat-label">Courses Recommended</div></div>
+      </div>
+    </div>
+
+    <div class="target-role-bar">
+      <label>🎯 Target Role:</label>
+      <select id="targetRoleSelect" onchange="updateTargetRole()">
+        <option value="pm">Product Manager</option>
+        <option value="analyst">Data Analyst</option>
+        <option value="ux">UX Research Lead</option>
+        <option value="growth">Growth PM</option>
+      </select>
+      <span class="role-match" id="roleMatchLabel">87% match</span>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="dash-card animate-in">
+        <h3>📊 Your Skill Profile</h3>
+        <div class="skill-bar-group"><div class="skill-bar-label"><span>Product Strategy</span><span>Advanced</span></div><div class="skill-bar-track"><div class="skill-bar-progress high" data-width="88"></div></div></div>
+        <div class="skill-bar-group"><div class="skill-bar-label"><span>User Research</span><span>Intermediate</span></div><div class="skill-bar-track"><div class="skill-bar-progress medium" data-width="65"></div></div></div>
+        <div class="skill-bar-group"><div class="skill-bar-label"><span>Data Analysis (SQL)</span><span>Beginner</span></div><div class="skill-bar-track"><div class="skill-bar-progress low" data-width="35"></div></div></div>
+        <div class="skill-bar-group"><div class="skill-bar-label"><span>A/B Testing</span><span>Intermediate</span></div><div class="skill-bar-track"><div class="skill-bar-progress medium" data-width="58"></div></div></div>
+        <div class="skill-bar-group"><div class="skill-bar-label"><span>Agile / Scrum</span><span>Advanced</span></div><div class="skill-bar-track"><div class="skill-bar-progress high" data-width="82"></div></div></div>
+        <div class="skill-bar-group"><div class="skill-bar-label"><span>Technical Writing</span><span>Beginner</span></div><div class="skill-bar-track"><div class="skill-bar-progress low" data-width="30"></div></div></div>
+        <button class="cta-btn" onclick="showScreen('assessment-intro')">Take Skill Assessment →</button>
+      </div>
+
+      <div class="dash-card animate-in">
+        <h3>🎯 Top Job Matches</h3>
+        <div class="job-match-item" onclick="showScreen('gap-analysis')">
+          <div class="job-match-logo">🟦</div>
+          <div class="job-match-info"><h4>Product Manager</h4><p>Google • Mountain View, CA</p></div>
+          <span class="job-match-score">87%</span>
+          <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark(this)" title="Save job">☆</button>
+        </div>
+        <div class="job-match-item" onclick="showScreen('gap-analysis')">
+          <div class="job-match-logo">🟪</div>
+          <div class="job-match-info"><h4>Sr. Product Analyst</h4><p>Meta • Menlo Park, CA</p></div>
+          <span class="job-match-score">72%</span>
+          <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark(this)" title="Save job">☆</button>
+        </div>
+        <div class="job-match-item" onclick="showScreen('gap-analysis')">
+          <div class="job-match-logo">🟩</div>
+          <div class="job-match-info"><h4>UX Research Lead</h4><p>Spotify • New York, NY</p></div>
+          <span class="job-match-score">65%</span>
+          <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark(this)" title="Save job">☆</button>
+        </div>
+        <div class="job-match-item" onclick="showScreen('gap-analysis')">
+          <div class="job-match-logo">🟧</div>
+          <div class="job-match-info"><h4>Growth PM</h4><p>Stripe • San Francisco, CA</p></div>
+          <span class="job-match-score">61%</span>
+          <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark(this)" title="Save job">☆</button>
+        </div>
+        <button class="cta-btn" onclick="showScreen('gap-analysis')">View Skill Gap Analysis →</button>
+        <button class="cta-btn-outline" onclick="showScreen('courses')">Browse Courses</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 3: ASSESSMENT INTRO ===== -->
+<div class="screen" id="screen-assessment-intro">
+  <div class="main-container">
+    <div class="breadcrumb">
+      <a onclick="showScreen('home')">Home</a><span class="sep">›</span>
+      <a onclick="showScreen('dashboard')">Skills</a><span class="sep">›</span>
+      <span>Assessment</span>
+    </div>
+    <div class="assessment-intro animate-in">
+      <div class="assessment-intro-card">
+        <div class="assessment-icon">📝</div>
+        <h2>Skill Assessment</h2>
+        <p>Answer 5 quick questions to get a personalized skill profile matched to real jobs.</p>
+        <p style="font-size:13px; color:#999;">Takes about 3 minutes • Results are private</p>
+        <div class="assessment-features">
+          <div class="assessment-feature"><div class="feat-icon">🎯</div><h4>Job Matching</h4><p>See how your skills align with roles you want</p></div>
+          <div class="assessment-feature"><div class="feat-icon">📈</div><h4>Gap Analysis</h4><p>Identify exactly what to learn next</p></div>
+          <div class="assessment-feature"><div class="feat-icon">🎓</div><h4>Course Picks</h4><p>Get courses tailored to close your gaps</p></div>
+        </div>
+        <p style="font-weight:600; margin-bottom:8px;">What best describes you?</p>
+        <div class="role-selector">
+          <div class="role-option" onclick="selectRole(this)"><div class="role-icon">🔍</div><h4>Job Seeker</h4><p>Looking for my next role</p></div>
+          <div class="role-option" onclick="selectRole(this)"><div class="role-icon">📈</div><h4>Upskilling</h4><p>Growing in my current career</p></div>
+          <div class="role-option" onclick="selectRole(this)"><div class="role-icon">🔄</div><h4>Career Switcher</h4><p>Transitioning to a new field</p></div>
+        </div>
+        <button class="cta-btn" id="startQuizBtn" style="opacity:0.5; pointer-events:none;" onclick="startQuiz()">Start Assessment →</button>
+        <button class="cta-btn-outline" onclick="showScreen('dashboard')">← Back to Dashboard</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 4: QUIZ ===== -->
+<div class="screen" id="screen-quiz">
+  <div class="main-container">
+    <div class="breadcrumb">
+      <a onclick="showScreen('home')">Home</a><span class="sep">›</span>
+      <a onclick="showScreen('dashboard')">Skills</a><span class="sep">›</span>
+      <a onclick="showScreen('assessment-intro')">Assessment</a><span class="sep">›</span>
+      <span>Quiz</span>
+    </div>
+    <div class="quiz-container animate-in">
+      <div class="quiz-progress">
+        <div class="quiz-progress-bar"><div class="quiz-progress-fill" id="quizProgressFill" style="width:20%"></div></div>
+        <span class="quiz-progress-text" id="quizProgressText">1 of 5</span>
+      </div>
+      <div class="quiz-card" id="quizCard"></div>
+      <div class="quiz-nav">
+        <button class="quiz-back" id="quizBackBtn" onclick="quizBack()">← Back</button>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+          <button class="quiz-next" id="quizNextBtn" onclick="quizNext()" disabled>Next →</button>
+          <button class="quiz-skip" onclick="quizSkip()">Skip this question</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 5: RESULTS ===== -->
+<div class="screen" id="screen-results">
+  <div class="main-container">
+    <div class="breadcrumb">
+      <a onclick="showScreen('home')">Home</a><span class="sep">›</span>
+      <a onclick="showScreen('dashboard')">Skills</a><span class="sep">›</span>
+      <span>Assessment Results</span>
+    </div>
+    <div class="results-container animate-in">
+      <div class="results-header">
+        <h1>🎉 Your Assessment Results</h1>
+        <p>Here's how your skills match up with your target roles</p>
+      </div>
+      <div class="results-overall">
+        <div class="score-circle-container">
+          <div class="score-circle">
+            <svg width="120" height="120" viewBox="0 0 120 120"><circle class="score-circle-bg" cx="60" cy="60" r="52"/><circle class="score-circle-fill" cx="60" cy="60" r="52" stroke="#057642" stroke-dasharray="327" stroke-dashoffset="327" id="overallCircle"/></svg>
+            <div class="score-circle-text"><div class="score-val" id="pmScoreVal">87%</div><div class="score-lbl">Product Manager</div></div>
+          </div>
+          <div class="score-circle">
+            <svg width="120" height="120" viewBox="0 0 120 120"><circle class="score-circle-bg" cx="60" cy="60" r="52"/><circle class="score-circle-fill" cx="60" cy="60" r="52" stroke="#e89f17" stroke-dasharray="327" stroke-dashoffset="327" id="analystCircle"/></svg>
+            <div class="score-circle-text"><div class="score-val" id="daScoreVal">72%</div><div class="score-lbl">Data Analyst</div></div>
+          </div>
+          <div class="score-circle">
+            <svg width="120" height="120" viewBox="0 0 120 120"><circle class="score-circle-bg" cx="60" cy="60" r="52"/><circle class="score-circle-fill" cx="60" cy="60" r="52" stroke="#e89f17" stroke-dasharray="327" stroke-dashoffset="327" id="uxCircle"/></svg>
+            <div class="score-circle-text"><div class="score-val" id="uxScoreVal">65%</div><div class="score-lbl">UX Researcher</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="results-grid" id="resultsGrid">
+        <!-- Filled by JS based on quiz answers -->
+      </div>
+      <div class="results-actions">
+        <button class="profile-badge-btn" onclick="showToast('🏅 Skills badge added to your LinkedIn profile!')">Add Skills Badge to Profile</button>
+        <button class="share-btn" onclick="showToast('📤 Results link copied! Share with your network.')">Share Results</button>
+      </div>
+      <div style="text-align:center; margin-top:16px;">
+        <button class="cta-btn" style="width:auto; display:inline-block;" onclick="showScreen('gap-analysis')">View Job-Skill Gap Analysis →</button>
+        <button class="cta-btn-outline" style="width:auto; display:inline-block; margin-left:8px;" onclick="showScreen('courses')">Browse Recommended Courses</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 6: JOB-SKILL GAP ===== -->
+<div class="screen" id="screen-gap-analysis">
+  <div class="main-container">
+    <div class="breadcrumb">
+      <a onclick="showScreen('home')">Home</a><span class="sep">›</span>
+      <a onclick="showScreen('dashboard')">Skills</a><span class="sep">›</span>
+      <span>Gap Analysis</span>
+    </div>
+    <div class="gap-container animate-in">
+      <div class="gap-header"><h1>Job-Skill Gap Analysis</h1><p>See exactly which skills you have and which you need for your target roles</p></div>
+      <div class="gap-job-card" onclick="showScreen('courses')">
+        <div class="gap-job-top">
+          <div class="gap-job-logo">🟦</div>
+          <div class="gap-job-title"><h3>Product Manager</h3><p>Google • Mountain View, CA • $165K-$220K</p></div>
+          <div class="gap-job-match-badge"><div class="gap-match-pct high-match">87%</div><div class="gap-match-label">match</div></div>
+        </div>
+        <div class="gap-skills-grid">
+          <span class="gap-skill-tag has">✓ Product Strategy</span><span class="gap-skill-tag has">✓ Agile/Scrum</span>
+          <span class="gap-skill-tag has">✓ User Research</span><span class="gap-skill-tag has">✓ Stakeholder Mgmt</span>
+          <span class="gap-skill-tag needs">✗ SQL / Data Analysis</span><span class="gap-skill-tag needs">✗ Technical Writing</span>
+        </div>
+      </div>
+      <div class="gap-job-card" onclick="showScreen('courses')">
+        <div class="gap-job-top">
+          <div class="gap-job-logo">🟪</div>
+          <div class="gap-job-title"><h3>Sr. Product Analyst</h3><p>Meta • Menlo Park, CA • $140K-$185K</p></div>
+          <div class="gap-job-match-badge"><div class="gap-match-pct med-match">72%</div><div class="gap-match-label">match</div></div>
+        </div>
+        <div class="gap-skills-grid">
+          <span class="gap-skill-tag has">✓ Product Strategy</span><span class="gap-skill-tag has">✓ A/B Testing</span>
+          <span class="gap-skill-tag needs">✗ SQL / Data Analysis</span><span class="gap-skill-tag needs">✗ Python / R</span>
+          <span class="gap-skill-tag needs">✗ Statistical Methods</span>
+        </div>
+      </div>
+      <div class="gap-job-card" onclick="showScreen('courses')">
+        <div class="gap-job-top">
+          <div class="gap-job-logo">🟩</div>
+          <div class="gap-job-title"><h3>UX Research Lead</h3><p>Spotify • New York, NY • $130K-$175K</p></div>
+          <div class="gap-job-match-badge"><div class="gap-match-pct med-match">65%</div><div class="gap-match-label">match</div></div>
+        </div>
+        <div class="gap-skills-grid">
+          <span class="gap-skill-tag has">✓ User Research</span><span class="gap-skill-tag has">✓ Product Strategy</span>
+          <span class="gap-skill-tag needs">✗ Qualitative Analysis</span><span class="gap-skill-tag needs">✗ Survey Design</span>
+          <span class="gap-skill-tag needs">✗ Research Synthesis</span><span class="gap-skill-tag needs">✗ Usability Testing</span>
+        </div>
+      </div>
+      <div style="text-align:center; margin-top:20px;">
+        <button class="cta-btn" style="width:auto; display:inline-block;" onclick="showScreen('courses')">Close My Skill Gaps →</button>
+        <button class="cta-btn-outline" style="width:auto; display:inline-block; margin-left:8px;" onclick="showScreen('dashboard')">← Back to Dashboard</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 7: COURSES ===== -->
+<div class="screen" id="screen-courses">
+  <div class="main-container">
+    <div class="breadcrumb">
+      <a onclick="showScreen('home')">Home</a><span class="sep">›</span>
+      <a onclick="showScreen('dashboard')">Skills</a><span class="sep">›</span>
+      <span>Recommended Courses</span>
+    </div>
+    <div class="courses-container animate-in">
+      <div class="courses-header"><h1>Recommended Courses</h1><p>Personalized picks to close your skill gaps and boost your job match scores</p></div>
+      <div class="courses-filter">
+        <span class="filter-chip active">All Courses</span>
+        <span class="filter-chip">SQL & Data</span>
+        <span class="filter-chip">Product Management</span>
+        <span class="filter-chip">UX Research</span>
+        <span class="filter-chip">Technical Writing</span>
+      </div>
+
+      <div class="course-card" onclick="showScreen('course-detail')">
+        <div class="course-thumb" style="background:linear-gradient(135deg,#1a73e8,#174ea6);">📊</div>
+        <div class="course-info">
+          <h3>SQL for Product Managers: From Zero to Analysis</h3>
+          <div class="course-author">By Sarah Mitchell • LinkedIn Learning</div>
+          <div class="course-meta"><span>⏱ 4h 30m</span><span>⭐ 4.8 (2.3K)</span><span>📈 Beginner → Intermediate</span></div>
+          <span class="course-relevance">Closes SQL gap • +15% job match for Product Manager</span>
+          <div class="course-social"><div class="avatars"><span class="mini-avatar">SM</span><span class="mini-avatar">JK</span><span class="mini-avatar">AL</span></div> Sarah M. and 11 others in your network completed this</div>
+        </div>
+        <div class="course-action">
+          <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark(this)" title="Save course">☆</button>
+          <button class="course-start-btn" onclick="event.stopPropagation(); showScreen('course-detail')">Start</button>
+        </div>
+      </div>
+
+      <div class="course-card" onclick="showScreen('course-detail')">
+        <div class="course-thumb" style="background:linear-gradient(135deg,#e89f17,#b45309);">🧪</div>
+        <div class="course-info">
+          <h3>A/B Testing & Experimentation for Product Teams</h3>
+          <div class="course-author">By David Park • LinkedIn Learning</div>
+          <div class="course-meta"><span>⏱ 3h 15m</span><span>⭐ 4.7 (1.8K)</span><span>📈 Intermediate → Advanced</span></div>
+          <span class="course-relevance">Strengthens testing skills • +8% match for Data Analyst</span>
+          <div class="course-social"><div class="avatars"><span class="mini-avatar">RP</span><span class="mini-avatar">MG</span></div> Rahul P. and 7 others completed this • Trending for PM roles</div>
+        </div>
+        <div class="course-action">
+          <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark(this)" title="Save course">☆</button>
+          <button class="course-start-btn" onclick="event.stopPropagation(); showScreen('course-detail')">Start</button>
+        </div>
+      </div>
+
+      <div class="course-card" onclick="showScreen('course-detail')">
+        <div class="course-thumb" style="background:linear-gradient(135deg,#057642,#045e35);">✍️</div>
+        <div class="course-info">
+          <h3>Technical Writing for PMs: PRDs, Specs & Docs</h3>
+          <div class="course-author">By Lisa Torres • LinkedIn Learning</div>
+          <div class="course-meta"><span>⏱ 2h 45m</span><span>⭐ 4.6 (980)</span><span>📈 Beginner → Intermediate</span></div>
+          <span class="course-relevance">Closes writing gap • +10% match for Product Manager</span>
+          <div class="course-social"><div class="avatars"><span class="mini-avatar">KC</span><span class="mini-avatar">NR</span><span class="mini-avatar">PL</span></div> Karen C. and 5 others took this course this month</div>
+        </div>
+        <div class="course-action">
+          <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark(this)" title="Save course">☆</button>
+          <button class="course-start-btn" onclick="event.stopPropagation(); showScreen('course-detail')">Start</button>
+        </div>
+      </div>
+
+      <div class="course-card" onclick="showScreen('course-detail')">
+        <div class="course-thumb" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">🔬</div>
+        <div class="course-info">
+          <h3>User Research Methods: Interviews to Insights</h3>
+          <div class="course-author">By Maria Gonzalez • LinkedIn Learning</div>
+          <div class="course-meta"><span>⏱ 5h 10m</span><span>⭐ 4.9 (3.1K)</span><span>📈 Intermediate → Advanced</span></div>
+          <span class="course-relevance">Closes research gap • +20% match for UX Research Lead</span>
+          <div class="course-social"><div class="avatars"><span class="mini-avatar">TW</span><span class="mini-avatar">AJ</span></div> Tina W. and 20 others completed this • Top rated</div>
+        </div>
+        <div class="course-action">
+          <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark(this)" title="Save course">☆</button>
+          <button class="course-start-btn" onclick="event.stopPropagation(); showScreen('course-detail')">Start</button>
+        </div>
+      </div>
+
+      <div class="course-card" onclick="showScreen('course-detail')">
+        <div class="course-thumb" style="background:linear-gradient(135deg,#dc2626,#991b1b);">📐</div>
+        <div class="course-info">
+          <h3>Product Strategy & Roadmapping Masterclass</h3>
+          <div class="course-author">By James Wu • LinkedIn Learning</div>
+          <div class="course-meta"><span>⏱ 6h 20m</span><span>⭐ 4.8 (4.2K)</span><span>📈 Advanced → Expert</span></div>
+          <span class="course-relevance">Strengthens core PM skill • Maintains 87% match</span>
+          <div class="course-social"><div class="avatars"><span class="mini-avatar">DW</span><span class="mini-avatar">LT</span><span class="mini-avatar">SH</span></div> David W. and 33 others completed this</div>
+        </div>
+        <div class="course-action">
+          <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark(this)" title="Save course">☆</button>
+          <button class="course-start-btn" onclick="event.stopPropagation(); showScreen('course-detail')">Start</button>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:16px;">
+        <button class="cta-btn-outline" style="width:auto; display:inline-block;" onclick="showScreen('gap-analysis')">← Back to Gap Analysis</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 8: COURSE DETAIL ===== -->
+<div class="screen" id="screen-course-detail">
+  <div class="main-container">
+    <div class="breadcrumb">
+      <a onclick="showScreen('home')">Home</a><span class="sep">›</span>
+      <a onclick="showScreen('dashboard')">Skills</a><span class="sep">›</span>
+      <a onclick="showScreen('courses')">Courses</a><span class="sep">›</span>
+      <span>SQL for Product Managers</span>
+    </div>
+    <div class="course-detail-container animate-in">
+      <div class="course-detail-hero">
+        <button class="back-btn" onclick="showScreen('courses')">← Back to Courses</button>
+        <div class="video-preview" onclick="showToast('🎬 Video preview would play here')">
+          <div class="play-btn">▶</div>
+          <div class="video-duration">1:42 preview</div>
+        </div>
+        <h1>SQL for Product Managers: From Zero to Analysis</h1>
+        <div class="course-author">By Sarah Mitchell • LinkedIn Learning</div>
+        <div class="course-detail-meta">
+          <span>⏱ 4h 30m total</span><span>⭐ 4.8 (2,341 ratings)</span>
+          <span>📊 12 modules</span><span>🎓 Certificate included</span>
+        </div>
+      </div>
+
+      <div class="course-detail-grid">
+        <div>
+          <div class="course-modules">
+            <div class="module-header">Course Modules</div>
+            <div class="module-item" onclick="toggleModule(this)"><div class="module-check done">✓</div><div class="module-info"><h4>1. Introduction to SQL</h4><p>What is SQL and why PMs need it</p></div><span class="module-duration">12 min</span></div>
+            <div class="module-item" onclick="toggleModule(this)"><div class="module-check done">✓</div><div class="module-info"><h4>2. Setting Up Your Environment</h4><p>Database tools and playground setup</p></div><span class="module-duration">18 min</span></div>
+            <div class="module-item" onclick="toggleModule(this)"><div class="module-check">3</div><div class="module-info"><h4>3. SELECT & Filtering Data</h4><p>Writing your first queries</p></div><span class="module-duration">25 min</span></div>
+            <div class="module-item" onclick="toggleModule(this)"><div class="module-check">4</div><div class="module-info"><h4>4. JOINs & Relationships</h4><p>Combining data from multiple tables</p></div><span class="module-duration">30 min</span></div>
+            <div class="module-item" onclick="toggleModule(this)"><div class="module-check">5</div><div class="module-info"><h4>5. Aggregations & GROUP BY</h4><p>Summarizing data for insights</p></div><span class="module-duration">22 min</span></div>
+            <div class="module-item" onclick="toggleModule(this)"><div class="module-check">6</div><div class="module-info"><h4>6. Subqueries & CTEs</h4><p>Complex queries made simple</p></div><span class="module-duration">28 min</span></div>
+            <div class="module-item" onclick="toggleModule(this)"><div class="module-check">7</div><div class="module-info"><h4>7. Window Functions</h4><p>Rankings, running totals, and more</p></div><span class="module-duration">20 min</span></div>
+            <div class="module-item" onclick="toggleModule(this)"><div class="module-check">8</div><div class="module-info"><h4>8. Real PM Dashboards</h4><p>Building queries for product metrics</p></div><span class="module-duration">35 min</span></div>
+          </div>
+
+          <div class="reviews-section">
+            <h3>What Learners Say</h3>
+            <div class="review-item">
+              <div class="review-top">
+                <div class="review-avatar">SC</div>
+                <div><div class="review-name">Sarah Chen</div><div class="review-role">Sr. Product Manager at Meta</div></div>
+                <div class="review-stars">⭐⭐⭐⭐⭐</div>
+              </div>
+              <div class="review-text">This course finally made SQL click for me. I went from zero to writing my own product dashboards in two weeks. The PM-specific examples are what set this apart.</div>
+            </div>
+            <div class="review-item">
+              <div class="review-top">
+                <div class="review-avatar">MR</div>
+                <div><div class="review-name">Marcus Rivera</div><div class="review-role">MBA Candidate at Kellogg</div></div>
+                <div class="review-stars">⭐⭐⭐⭐⭐</div>
+              </div>
+              <div class="review-text">Perfect for PMs who want to be more data-driven. The JOINs and window functions modules were game-changers for my internship interviews.</div>
+            </div>
+            <div class="review-item">
+              <div class="review-top">
+                <div class="review-avatar">AP</div>
+                <div><div class="review-name">Anika Patel</div><div class="review-role">Product Analyst at Stripe</div></div>
+                <div class="review-stars">⭐⭐⭐⭐</div>
+              </div>
+              <div class="review-text">Great starting point. Module 8 on real dashboards is worth the entire course. I wish there were more advanced exercises though.</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="course-sidebar-card">
+            <h3>Your Progress</h3>
+            <div class="progress-ring-container">
+              <svg width="100" height="100" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#e8f0fe" stroke-width="8"/>
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#0a66c2" stroke-width="8" stroke-dasharray="264" stroke-dashoffset="220" stroke-linecap="round" transform="rotate(-90 50 50)"/>
+              </svg>
+              <div style="margin-top:-65px; font-size:20px; font-weight:700;">17%</div>
+              <div style="font-size:12px; color:#666; margin-top:4px;">2 of 12 complete</div>
+            </div>
+          </div>
+          <div class="course-sidebar-card">
+            <h3>Skills You'll Gain</h3>
+            <div class="skill-tag-list">
+              <span class="skill-tag-sm">SQL Queries</span><span class="skill-tag-sm">Data Analysis</span>
+              <span class="skill-tag-sm">JOINs</span><span class="skill-tag-sm">Aggregations</span>
+              <span class="skill-tag-sm">Product Metrics</span><span class="skill-tag-sm">Dashboard Building</span>
+            </div>
+          </div>
+          <div class="course-sidebar-card">
+            <h3>Impact on Your Profile</h3>
+            <p style="font-size:13px; color:#666; margin-bottom:8px;">Completing this course will:</p>
+            <p style="font-size:13px; margin-bottom:4px;">📈 <strong>+15%</strong> Product Manager match</p>
+            <p style="font-size:13px; margin-bottom:4px;">📈 <strong>+22%</strong> Data Analyst match</p>
+            <p style="font-size:13px; margin-bottom:12px;">🏅 SQL badge on your profile</p>
+            <button class="enroll-btn" onclick="enrollCourse()">Continue Learning →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ============ ONBOARDING ============
+  let hasSeenOnboarding = false;
+
+  function handleSkillsClick() {
+    if (!hasSeenOnboarding) {
+      hasSeenOnboarding = true;
+      document.getElementById('onboardingModal').classList.add('show');
+      // Hide tooltip after first click
+      const tip = document.getElementById('skillsTooltip');
+      if (tip) tip.style.display = 'none';
+    } else {
+      showScreen('dashboard');
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('onboardingModal').classList.remove('show');
+    showScreen('dashboard');
+  }
+
+  // Hide tooltip after 5 seconds
+  setTimeout(() => {
+    const tip = document.getElementById('skillsTooltip');
+    if (tip) tip.style.display = 'none';
+  }, 5000);
+
+  // ============ SCREEN NAVIGATION ============
+  function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + screenId).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
+    if (screenId === 'home') {
+      document.querySelectorAll('.nav-item')[0].classList.add('active-nav');
+    } else {
+      document.getElementById('skillsNavBtn').classList.add('active-nav');
+    }
+    if (screenId === 'dashboard') setTimeout(animateSkillBars, 200);
+    if (screenId === 'results') {
+      buildResultsFromQuiz();
+      setTimeout(animateResultCircles, 300);
+      showNotifDot();
+    }
+    window.scrollTo(0, 0);
+  }
+
+  // ============ HOME MATCH BAR ============
+  setTimeout(() => { document.getElementById('homeMatchBar').style.width = '72%'; }, 800);
+
+  // ============ SKILL BAR ANIMATION ============
+  function animateSkillBars() {
+    document.querySelectorAll('.skill-bar-progress').forEach(bar => {
+      const w = bar.getAttribute('data-width');
+      if (w) bar.style.width = w + '%';
+    });
+  }
+
+  // ============ TARGET ROLE SELECTOR ============
+  function updateTargetRole() {
+    const sel = document.getElementById('targetRoleSelect').value;
+    const label = document.getElementById('roleMatchLabel');
+    const matches = { pm: '87%', analyst: '72%', ux: '65%', growth: '61%' };
+    label.textContent = matches[sel] + ' match';
+  }
+
+  // ============ ROLE SELECTOR (Assessment) ============
+  function selectRole(el) {
+    document.querySelectorAll('.role-option').forEach(r => r.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('startQuizBtn').style.opacity = '1';
+    document.getElementById('startQuizBtn').style.pointerEvents = 'auto';
+  }
+
+  // ============ QUIZ ============
+  const quizQuestions = [
+    { category: 'Product Strategy', question: 'How do you typically prioritize features for your product roadmap?',
+      options: ['I use frameworks like RICE or weighted scoring','I rely on stakeholder input and gut feeling','I prioritize based on customer feedback and data','I\'m not sure — I haven\'t done this before'],
+      feedback: ['Expert-level! You use structured frameworks.','Good instincts — frameworks could strengthen this.','Data-driven approach — solid foundation!','No worries — we\'ll recommend great courses for this.'],
+      fbType: ['great','good','great','grow'], scores: [3,2,3,0]
+    },
+    { category: 'Data Analysis', question: 'How comfortable are you writing SQL queries to analyze product data?',
+      options: ['Very comfortable — I write complex queries regularly','Somewhat — I can do basic SELECT and WHERE','I understand the concept but rarely write SQL','I\'ve never written SQL'],
+      feedback: ['Impressive! You\'re ahead of most PMs here.','Good start — a short course can level you up fast.','You have the right mental model — just need practice.','This is the #1 skill gap for PMs — let\'s fix it!'],
+      fbType: ['great','good','good','grow'], scores: [3,2,1,0]
+    },
+    { category: 'User Research', question: 'Which user research methods have you used in the past year?',
+      options: ['User interviews, surveys, and usability testing','Mainly surveys and analytics review','I\'ve observed users but haven\'t run formal research','I haven\'t conducted user research'],
+      feedback: ['Full-stack researcher! Excellent breadth.','Quantitative strength — qualitative depth is next.','Observation is a great start — let\'s formalize it.','We\'ll recommend foundational research courses.'],
+      fbType: ['great','good','good','grow'], scores: [3,2,1,0]
+    },
+    { category: 'A/B Testing', question: 'How would you determine if an A/B test result is statistically significant?',
+      options: ['Check p-value, confidence interval, and sample size','I\'d look at conversion rate difference','I know the concept but need help with the math','I\'m not familiar with statistical significance'],
+      feedback: ['Strong statistical literacy — rare for PMs!','Directionally right — stats will sharpen your edge.','The math is learnable — a focused course helps.','This is very common — we have a great course for it.'],
+      fbType: ['great','good','good','grow'], scores: [3,2,1,0]
+    },
+    { category: 'Technical Communication', question: 'How do you document product requirements for engineering teams?',
+      options: ['Detailed PRDs with specs, edge cases, and acceptance criteria','User stories with basic acceptance criteria','Verbal communication with some written notes','I haven\'t written formal product documentation'],
+      feedback: ['Thorough documentation skills — engineers love working with you!','Good foundation — adding edge cases will level up your specs.','Writing it down will transform your team\'s velocity.','PRD writing is a high-impact skill to develop next.'],
+      fbType: ['great','good','good','grow'], scores: [3,2,1,0]
+    }
+  ];
+
+  let currentQuestion = 0;
+  let quizAnswers = [];
+
+  function startQuiz() {
+    currentQuestion = 0;
+    quizAnswers = [];
+    showScreen('quiz');
+    renderQuestion();
+  }
+
+  function renderQuestion() {
+    const q = quizQuestions[currentQuestion];
+    const selected = quizAnswers[currentQuestion];
+    let feedbackHTML = '';
+    if (selected !== undefined) {
+      const fb = q.feedback[selected];
+      const ft = q.fbType[selected];
+      feedbackHTML = `<div class="quiz-feedback show ${ft}">${ft === 'great' ? '🌟' : ft === 'good' ? '👍' : '🚀'} ${fb}</div>`;
+    }
+    document.getElementById('quizCard').innerHTML = `
+      <div class="quiz-category">${q.category}</div>
+      <h2>${q.question}</h2>
+      <div class="quiz-options">
+        ${q.options.map((opt, i) => `
+          <div class="quiz-option ${selected === i ? 'selected' : ''}" onclick="selectQuizOption(${i})">
+            <div class="quiz-option-radio"></div><span>${opt}</span>
+          </div>`).join('')}
+      </div>
+      ${feedbackHTML}
+    `;
+    document.getElementById('quizProgressFill').style.width = ((currentQuestion + 1) / quizQuestions.length * 100) + '%';
+    document.getElementById('quizProgressText').textContent = `${currentQuestion + 1} of ${quizQuestions.length}`;
+    document.getElementById('quizNextBtn').disabled = selected === undefined;
+    document.getElementById('quizNextBtn').textContent = currentQuestion === quizQuestions.length - 1 ? 'See Results →' : 'Next →';
+    document.getElementById('quizBackBtn').style.visibility = currentQuestion === 0 ? 'hidden' : 'visible';
+  }
+
+  function selectQuizOption(idx) {
+    quizAnswers[currentQuestion] = idx;
+    renderQuestion();
+  }
+
+  function quizNext() {
+    if (currentQuestion < quizQuestions.length - 1) { currentQuestion++; renderQuestion(); }
+    else { showScreen('results'); }
+  }
+
+  function quizBack() {
+    if (currentQuestion > 0) { currentQuestion--; renderQuestion(); }
+  }
+
+  // ============ DYNAMIC RESULTS ============
+  function buildResultsFromQuiz() {
+    // Calculate scores per category from quiz answers
+    const categories = [
+      { name: 'Product Strategy', icon: '📐', idx: 0 },
+      { name: 'Data Analysis (SQL)', icon: '📊', idx: 1 },
+      { name: 'User Research', icon: '🔬', idx: 2 },
+      { name: 'A/B Testing', icon: '🧪', idx: 3 },
+      { name: 'Technical Writing', icon: '✍️', idx: 4 },
+      { name: 'Agile / Scrum', icon: '🏃', idx: -1 } // not in quiz, default advanced
+    ];
+
+    const grid = document.getElementById('resultsGrid');
+    grid.innerHTML = '';
+
+    let totalScore = 0;
+    let count = 0;
+
+    categories.forEach(cat => {
+      let score, level, levelClass, desc;
+      if (cat.idx === -1) {
+        score = 3; // default advanced for Agile
+      } else {
+        score = quizAnswers[cat.idx] !== undefined ? quizQuestions[cat.idx].scores[quizAnswers[cat.idx]] : 2;
+      }
+      totalScore += score;
+      count++;
+
+      if (score >= 3) {
+        level = 'Advanced'; levelClass = 'level-advanced';
+        desc = 'Strong foundation, ready for senior roles';
+      } else if (score >= 1) {
+        level = 'Intermediate'; levelClass = 'level-intermediate';
+        desc = 'Good base, needs focused practice';
+      } else {
+        level = 'Beginner'; levelClass = 'level-beginner';
+        desc = 'Key gap — top priority to close';
+      }
+
+      const bgColor = score >= 3 ? '#e6f4ea' : score >= 1 ? '#fef7e0' : '#fce8e6';
+      grid.innerHTML += `
+        <div class="result-skill-card">
+          <div class="result-skill-icon" style="background:${bgColor};">${cat.icon}</div>
+          <div class="result-skill-info"><h4>${cat.name}</h4><p>${desc}</p></div>
+          <span class="result-skill-level ${levelClass}">${level}</span>
+        </div>`;
+    });
+
+    // Adjust circle scores based on answers
+    const avgNorm = totalScore / (count * 3); // 0 to 1
+    const pmScore = Math.round(65 + avgNorm * 30);
+    const daScore = Math.round(45 + avgNorm * 35);
+    const uxScore = Math.round(40 + avgNorm * 35);
+
+    document.getElementById('pmScoreVal').textContent = pmScore + '%';
+    document.getElementById('daScoreVal').textContent = daScore + '%';
+    document.getElementById('uxScoreVal').textContent = uxScore + '%';
+
+    // Store for circle animation
+    window._resultScores = { pm: pmScore, da: daScore, ux: uxScore };
+  }
+
+  function animateResultCircles() {
+    const circumference = 2 * Math.PI * 52;
+    const scores = window._resultScores || { pm: 87, da: 72, ux: 65 };
+    const items = [
+      { id: 'overallCircle', pct: scores.pm },
+      { id: 'analystCircle', pct: scores.da },
+      { id: 'uxCircle', pct: scores.ux },
+    ];
+    items.forEach(s => {
+      const el = document.getElementById(s.id);
+      const offset = circumference - (circumference * s.pct / 100);
+      el.style.strokeDashoffset = offset;
+    });
+  }
+
+  // ============ BOOKMARK TOGGLE ============
+  function toggleBookmark(el) {
+    if (el.classList.contains('saved')) {
+      el.classList.remove('saved');
+      el.textContent = '☆';
+      showToast('Removed from saved items');
+    } else {
+      el.classList.add('saved');
+      el.textContent = '★';
+      showToast('Saved! Find it in your bookmarks.');
+    }
+  }
+
+  // ============ QUIZ SKIP ============
+  function quizSkip() {
+    // Set a middle-ground answer (index 2) so results still work
+    if (quizAnswers[currentQuestion] === undefined) {
+      quizAnswers[currentQuestion] = 2;
+    }
+    quizNext();
+  }
+
+  // ============ NOTIFICATION DOT ============
+  let hasCompletedQuiz = false;
+  function showNotifDot() {
+    if (!hasCompletedQuiz) {
+      hasCompletedQuiz = true;
+      const dot = document.getElementById('skillsNotifDot');
+      if (dot) dot.classList.add('visible');
+    }
+  }
+
+  // ============ MODULE TOGGLE ============
+  function toggleModule(el) {
+    const check = el.querySelector('.module-check');
+    if (check.classList.contains('done')) { check.classList.remove('done'); check.textContent = ''; }
+    else { check.classList.add('done'); check.textContent = '✓'; }
+  }
+
+  // ============ TOAST ============
+  function enrollCourse() { showToast('🎉 Course progress saved! Keep going!'); }
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+
+  // ============ FILTER CHIPS ============
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', function() {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  // ============ INIT QUIZ ON SCREEN SHOW ============
+  const quizObs = new MutationObserver(() => {
+    if (document.getElementById('screen-quiz').classList.contains('active')) renderQuestion();
+  });
+  quizObs.observe(document.getElementById('screen-quiz'), { attributes: true, attributeFilter: ['class'] });
+</script>
+</body>
+</html>
