@@ -721,7 +721,7 @@ let autoplayInterval=null;
 function toggleAutoplay(){
   const btn=document.getElementById('autoplayBtn');
   if(autoplayInterval){clearInterval(autoplayInterval);autoplayInterval=null;btn.classList.remove('playing');btn.textContent='▶ Auto'}
-  else{hasSeenOnboarding=true;hasAssessedSkills=true;btn.classList.add('playing');btn.textContent='⏸ Stop';autoplayInterval=setInterval(()=>{if(currentScreenIdx<SCREENS.length-1)goToScreenIdx(currentScreenIdx+1);else{clearInterval(autoplayInterval);autoplayInterval=null;btn.classList.remove('playing');btn.textContent='▶ Auto'}},5000)}
+  else{hasSeenOnboarding=true;hasAssessedSkills=true;btn.classList.add('playing');btn.textContent='⏸ Stop';autoplayInterval=setInterval(()=>{if(currentScreenIdx<SCREENS.length-1)goToScreenIdx(currentScreenIdx+1);else{clearInterval(autoplayInterval);autoplayInterval=null;btn.classList.remove('playing');btn.textContent='▶ Auto'}},9000)}
 }
 
 // ===== JOURNEY STEPPER =====
